@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package mastery.pricing.v1;
+
+option csharp_namespace = "Mastery.Pricing.V1";
+
+import "google/protobuf/timestamp.proto";
+
+// Сервіс динамічного ціноутворення та персональних знижок
+service PricingService {
+  // 1. Unary: Розрахунок поточної ціни з урахуванням лояльності клієнта
+  rpc GetProductPrice (ProductPriceRequest) returns (ProductPriceResponse);
+
+  // 2. Client Streaming: Пакетне завантаження акційних правил/знижок
+  rpc UploadBulkDiscountRules (stream DiscountRule) returns (BulkUploadSummary);
+
+  // 3. Bi-directional Streaming: Живі торги / діалог розрахунку гуртової ціни
+  rpc LiveQuoteNegotiation (stream QuoteRequest) returns (stream QuoteResponse);
+}
+
+// Запит ціни
+message ProductPriceRequest {
+  string sku = 1;
+  string customer_tier = 2; // "Standard", "Silver", "Gold", "VIP"
+  int32 requested_quantity = 3;
+}
+
+// Деталізована цінова пропозиція
+message ProductPriceResponse {
+  string sku = 1;
+  double base_unit_price = 2;
+  double final_unit_price = 3;
+  double discount_percentage = 4;
+  string applied_discount_campaign = 5;
+  string currency = 6;
+  google.protobuf.Timestamp calculated_at = 7;
+}
+
+// Правило знижки, що передається в потоці клієнта
+message DiscountRule {
+  string sku = 1;
+  string campaign_name = 2;
+  double discount_percent = 3;
+  int32 minimum_bulk_quantity = 4;
+}
+
+// Результат обробки клієнтського потоку
+message BulkUploadSummary {
+  int32 rules_processed = 1;
+  int32 rules_applied = 2;
+  int32 rules_skipped = 3;
+  string status_message = 4;
+  google.protobuf.Timestamp completed_at = 5;
+}
+
+// Запит у двосторонньому потоці (переговори за гуртову партію)
+message QuoteRequest {
+  string session_id = 1;
+  string sku = 2;
+  int32 batch_volume = 3;
+  double target_unit_budget = 4;
+}
+
+// Відповідь у двосторонньому потоці
+message QuoteResponse {
+  string session_id = 1;
+  string sku = 2;
+  double offered_unit_price = 3;
+  bool is_accepted = 4;
+  string counter_offer_notes = 5;
+}

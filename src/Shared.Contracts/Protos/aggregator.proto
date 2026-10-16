@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package mastery.aggregator.v1;
+
+option csharp_namespace = "Mastery.Aggregator.V1";
+
+import "google/protobuf/timestamp.proto";
+import "inventory.proto";
+
+// gRPC Агрегатор (Composite Service / Backend-for-Frontend)
+service OrderAggregator {
+  // Агрегує дані з InventoryService та PricingService в єдину зведену DTO
+  rpc GetOrderOverview (OrderOverviewRequest) returns (OrderOverviewResponse);
+}
+
+// Запит формування зведеної інформації по позиції
+message OrderOverviewRequest {
+  string sku = 1;
+  string customer_tier = 2;
+  int32 quantity = 3;
+}
+
+// Зведена Composite DTO: поєднує інвентар, ціну та оцінку доставки
+message OrderOverviewResponse {
+  string sku = 1;
+  string product_name = 2;
+  
+  // Компонент інвентарю
+  mastery.inventory.v1.StockStatus stock_status = 3;
+  int32 available_stock = 4;
+  string primary_warehouse = 5;
+
+  // Компонент ціноутворення
+  double unit_price = 6;
+  double total_price = 7;
+  double total_discount_applied = 8;
+  string currency = 9;
+
+  // Індикатори стійкості та часткових відмов (Resilience & Fallback)
+  bool is_price_estimated = 10;
+  string degradation_warning = 11;
+
+  // Метадані виконання агрегації
+  int64 aggregation_latency_ms = 12;
+  google.protobuf.Timestamp generated_at = 13;
+}

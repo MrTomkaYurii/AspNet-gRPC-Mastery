@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package mastery.inventory.v1;
+
+option csharp_namespace = "Mastery.Inventory.V1";
+
+import "google/protobuf/timestamp.proto";
+
+// Сервіс управління складськими залишками
+service InventoryService {
+  // 1. Unary: Отримання інформації про залишок товару на конкретному складі
+  rpc GetStockItem (StockItemRequest) returns (StockItemResponse);
+
+  // 2. Unary: Резервування потрібної кількості товару (із бізнес-валідацією залишку)
+  rpc ReserveStock (ReserveStockRequest) returns (ReserveStockResponse);
+
+  // 3. Server Streaming: Потокова трансляція аудиту/оновлення залишків для моніторингу
+  rpc StreamStockUpdates (StockAuditFilter) returns (stream StockItemResponse);
+}
+
+// Запит інформації про товар за його артикулом (SKU)
+message StockItemRequest {
+  string sku = 1;
+}
+
+// Повна інформація про складську позицію
+message StockItemResponse {
+  string sku = 1;
+  string product_name = 2;
+  int32 available_quantity = 3;
+  int32 reserved_quantity = 4;
+  string warehouse_code = 5;
+  StockStatus status = 6;
+  google.protobuf.Timestamp last_restocked_at = 7;
+}
+
+// Статус складського залишку
+enum StockStatus {
+  STOCK_STATUS_UNSPECIFIED = 0;
+  IN_STOCK = 1;
+  LOW_STOCK = 2;
+  OUT_OF_STOCK = 3;
+  DISCONTINUED = 4;
+}
+
+// Запит на резервування позиції
+message ReserveStockRequest {
+  string sku = 1;
+  int32 quantity_to_reserve = 2;
+  string order_id = 3;
+}
+
+// Результат операції резервування
+message ReserveStockResponse {
+  bool is_success = 1;
+  string sku = 2;
+  int32 reserved_quantity = 3;
+  string message = 4;
+  google.protobuf.Timestamp reservation_expires_at = 5;
+}
+
+// Фільтр для потокового аудиту складу
+message StockAuditFilter {
+  string warehouse_code = 1;
+  int32 min_quantity_threshold = 2;
+}
