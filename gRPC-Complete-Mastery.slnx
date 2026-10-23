@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/ClientApp/ClientApp.csproj" />
     <Project Path="src/GatewayService/GatewayService.csproj" />
     <Project Path="src/InventoryService/InventoryService.csproj" />
     <Project Path="src/PricingService/PricingService.csproj" />
