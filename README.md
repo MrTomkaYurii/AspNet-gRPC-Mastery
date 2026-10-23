@@ -7,56 +7,76 @@
 [![HTTP/2](https://img.shields.io/badge/Protocol-HTTP%2F2%20(h2c)-blue)](https://http2.github.io/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> **Фундаментальний навчальний курс та інженерний полігон з розробки мікросервісних систем на gRPC в екосистемі ASP.NET Core 10.**  
-> Охоплює повний шлях: від контрактного проєктування (Contract-First на proto3) і збереження даних в Entity Framework Core до всіх 3-х потокових режимів, гібридної архітектури REST-over-gRPC, патерну Aggregator (Scatter-Gather) та виробничої стійкості (Interceptors, Deadlines, Graceful Fallback).
+> **Фундаментальний навчальний комплекс та інженерний полігон з розробки клієнт-серверних та мікросервісних систем на базі gRPC в екосистемі ASP.NET Core 10 (.NET 10).**  
+> Репозиторій створено спеціально для студентів та інженерів: він містить **3 серверні мікросервіси**, **1 інтерактивний консольний клієнт-полігон**, спільну бібліотеку Protobuf-контрактів та **5 вичерпних академічних посібників** із теорією, схемами та діаграмами.
 
 ---
 
-## 🏛️ Архітектура навчального комплексу
+## 🖥️ Що це за проєкти та які типи програм входять у рішення
 
-Система моделює високошвидкісну платформу електронної комерції та логістики:
+Розв'язок **`gRPC-Complete-Mastery.sln`** містить **5 проєктів**, які розділені за архітектурними ролями:
+
+| Проєкт у папці `src/` | Тип програми (.NET OutputType) | Технологічний стек | Роль в системі та призначення |
+| :--- | :--- | :--- | :--- |
+| **`ClientApp`** | **Консольний додаток (Console CLI)** | `net10.0`, `Grpc.Net.Client`, `HttpClient` | **Клієнтський тестовий полігон студента.** Інтерактивна консольна програма з меню (пункти 1–5, A), яка підключається до серверів через gRPC та REST і демонструє всі сценарії роботи. |
+| **`GatewayService`** | **Веб-сервіс (ASP.NET Core Web App)** | Kestrel Dual-Stack, Minimal APIs, gRPC Aggregator | **Гібридний шлюз та Агрегатор.** Працює на двох портах: `:5000` (REST JSON для вебу) та `:5005` (gRPC для мобільних додатків та агрегації замовлень Scatter-Gather). |
+| **`InventoryService`** | **Веб-сервіс (ASP.NET Core Web App)** | Kestrel HTTP/2 h2c, EF Core 10 SQLite | **Бекенд-мікросервіс складського обліку.** Слухає порт `:5001`. Відповідає за залишки товарів, транзакційне резервування та потоковий аудит складу. |
+| **`PricingService`** | **Веб-сервіс (ASP.NET Core Web App)** | Kestrel HTTP/2 h2c, EF Core 10 SQLite | **Бекенд-мікросервіс ціноутворення.** Слухає порт `:5002`. Розраховує знижки, приймає клієнтські стріми оновлення цін та проводить повнодуплексні торги. |
+| **`Shared.Contracts`** | **Бібліотека класів (Class Library)** | `Google.Protobuf`, `Grpc.Tools` | **Спільні двійкові контракти.** Містить `.proto`-файли (`inventory.proto`, `pricing.proto`, `aggregator.proto`), з яких компілятор `protoc` автоматично генерує C# класи. |
+
+---
+
+## 🏛️ Архітектурна схема взаємодії компонентів
 
 ```mermaid
 flowchart TB
-    ClientCLI["💻 ClientApp (Консольний стенд студента)
-Інтерактивне тестування 5-ти сценаріїв"]
-    WebClient["🌐 Web Browser / Frontend (cURL / Fetch)
-HTTP/1.1 REST Client"]
-
-    subgraph HybridGateway ["🚪 GatewayService (:5000) - ASP.NET Core 10 Dual-Stack"]
-        RestApi["REST Minimal APIs
-GET /api/catalog/products/{sku}"]
-        Aggregator["gRPC OrderAggregatorService
-Scatter-Gather Composite DTO"]
-        Interceptors["Interceptors
-Logging & Tracing (x-correlation-id)"]
+    subgraph ClientZone ["💻 КЛІЄНТСЬКИЙ РІВЕНЬ"]
+        ClientCLI["🖥️ ClientApp (Консольний додаток CLI)
+        Інтерактивне меню студента: Сценарії 01-05"]
+        Browser["🌐 Веб-браузер / cURL / Postman
+        Класичний клієнт HTTP/1.1"]
     end
 
-    subgraph Mesh ["⚡ Внутрішня gRPC-мережа (HTTP/2 Cleartext)"]
+    subgraph GatewayBoundary ["🚪 GatewayService (ASP.NET Core 10 Dual-Stack)"]
+        direction TB
+        Port5000["📍 Порт 5000 (HTTP/1.1)
+        REST Minimal API: GET /api/catalog/products/{sku}"]
+        Port5005["📍 Порт 5005 (HTTP/2 h2c)
+        gRPC OrderAggregatorService (Scatter-Gather)"]
+        Interceptors["Перехоплювачі (Interceptors)
+        ServerLogging & ClientTracing (x-correlation-id)"]
+        ClientPool["GrpcClientFactory
+        Пул довгоживучих сокетів SocketsHttpHandler"]
+
+        Port5000 --> ClientPool
+        Port5005 --> ClientPool
+        Port5005 --> Interceptors
+    end
+
+    subgraph BackendMesh ["⚡ ВНУТРІШНІ gRPC МІКРОСЕРВІСИ (HTTP/2 Cleartext LAN)"]
         Inventory["📦 InventoryService (:5001)
-gRPC Unary + Server Streaming
-Складські залишки та резерв"]
+        - Unary: GetStockItem, ReserveStock
+        - Server Streaming: StreamStockUpdates"]
         Pricing["💰 PricingService (:5002)
-gRPC Client + Bi-di Streaming
-Динамічні ціни та знижки"]
+        - Unary: GetProductPrice
+        - Client Streaming: UploadBulkDiscountRules
+        - Bi-directional Streaming: LiveQuoteNegotiation"]
     end
 
-    subgraph Persistence ["🗄️ Бази даних (EF Core SQLite)"]
+    subgraph DataTier ["🗄️ БАЗИ ДАНИХ (EF Core 10 SQLite)"]
         DbInv[("inventory.db
-SQLite WAL")]
+        Таблиця StockItems")]
         DbPrice[("pricing.db
-SQLite WAL")]
+        Таблиця Prices")]
     end
 
-    WebClient -->|"HTTP/1.1 JSON"| RestApi
-    ClientCLI -->|"gRPC HTTP/2"| Aggregator
-    ClientCLI -.->|"Direct gRPC"| Inventory
-    ClientCLI -.->|"Direct gRPC"| Pricing
+    Browser -->|"HTTP/1.1 REST JSON"| Port5000
+    ClientCLI -->|"gRPC HTTP/2"| Port5005
+    ClientCLI -.->|"Прямі gRPC виклики для тестів"| Inventory
+    ClientCLI -.->|"Прямі gRPC виклики для тестів"| Pricing
 
-    RestApi -->|"GrpcClientFactory"| Inventory
-    RestApi -->|"GrpcClientFactory"| Pricing
-    Aggregator -->|"Parallel Task.WhenAll"| Inventory
-    Aggregator -->|"Parallel Task.WhenAll"| Pricing
+    ClientPool -->|"Паралельний виклик (Stream #1)"| Inventory
+    ClientPool -->|"Паралельний виклик (Stream #3)"| Pricing
 
     Inventory --> DbInv
     Pricing --> DbPrice
@@ -64,74 +84,67 @@ SQLite WAL")]
 
 ---
 
-## 📚 Навчальні модулі серії «Mastery»
+## 🚀 Детальна інструкція: Як і звідки все запустити
 
-Усі методичні матеріали розроблені у вигляді покрокових практичних посібників у папці [`docs/`](./docs/):
+Для повноцінної роботи комплексу необхідно запустити **3 серверні мікросервіси**, а потім запустити **консольний клієнт `ClientApp`**.
 
-| Посібник | Академічна теорія та інженерні практики | Відповідні файли в коді |
-| :--- | :--- | :--- |
-| **[Mastery 01: Protobuf & Contracts](./docs/Mastery-01-Protobuf-Contracts.md)** | • Ретроспектива: від RPC/CORBA/SOAP до Protobuf<br>• Двійковий шар: Varints, ZigZag для від'ємних чисел, Tag-Length-Value (TLV)<br>• Побайтний розбір структури пакетів (Hex)<br>• Правила еволюції API, `reserved` та збереження невідомих полів (`UnknownFieldSet`) | [`Shared.Contracts`](./src/Shared.Contracts/)<br>• [`inventory.proto`](./src/Shared.Contracts/Protos/inventory.proto)<br>• [`pricing.proto`](./src/Shared.Contracts/Protos/pricing.proto)<br>• [`aggregator.proto`](./src/Shared.Contracts/Protos/aggregator.proto) |
-| **[Mastery 02: Streaming In-Depth](./docs/Mastery-02-Streaming-In-Depth.md)** | • Мережева анатомія HTTP/2: 9-байтний заголовок фрейму, потоки, мультиплексування<br>• Алгоритм компресії заголовків HPACK (Static/Dynamic tables)<br>• Кредитний контроль потоку (Flow Control) та Backpressure (`WINDOW_UPDATE`)<br>• Усі 4 патерни взаємодії з діаграмами фреймів<br>• Deadlines та каскадне скасування через фрейм `RST_STREAM` | [`InventoryGrpcService.cs`](./src/InventoryService/Services/InventoryGrpcService.cs)<br>[`PricingGrpcService.cs`](./src/PricingService/Services/PricingGrpcService.cs)<br>[`02_StreamingScenario.cs`](./src/ClientApp/Scenarios/02_StreamingScenario.cs) |
-| **[Mastery 03: EF Core Integration](./docs/Mastery-03-EFCore-Integration.md)** | • Потокобезпека та ізоляція `IServiceScope` при мультиплексуванні HTTP/2<br>• Чому `DbContext` зобов'язаний бути Scoped<br>• Оптимізація пам'яті через `.AsNoTracking()` та нульові алокації (Zero Allocations)<br>• Каскад скасування від клієнта до драйвера SQLite/Postgres через `CancellationToken`<br>• Транзакційне резервування, стан гонитви (Race Conditions) та матриця мапінгу винятків у `RpcException` | [`InventoryDbContext.cs`](./src/InventoryService/Data/InventoryDbContext.cs)<br>[`PricingDbContext.cs`](./src/PricingService/Data/PricingDbContext.cs)<br>[`InventoryGrpcService.cs`](./src/InventoryService/Services/InventoryGrpcService.cs) |
-| **[Mastery 04: REST Meets gRPC](./docs/Mastery-04-REST-vs-gRPC-Hybrid.md)** | • Інженерне порівняння REST проти gRPC (бенчмарки CPU/пам'яті)<br>• Архітектура North-South (зовнішній інтернет) проти East-West (датацентр)<br>• Мережева причина помилки `HTTP_1_1_REQUIRED (0xd)` у Cleartext HTTP/2 без ALPN<br>• Налаштування Dual-Stack Kestrel (порт 5000 REST + порт 5005 gRPC)<br>• Пулінг каналів через `GrpcClientFactory` (захист від Socket Exhaustion)<br>• Трансляція `RpcException` у HTTP ProblemDetails | [`GatewayService/Program.cs`](./src/GatewayService/Program.cs)<br>[`CatalogEndpoints.cs`](./src/GatewayService/Endpoints/CatalogEndpoints.cs)<br>[`03_RestGatewayScenario.cs`](./src/ClientApp/Scenarios/03_RestGatewayScenario.cs) |
-| **[Mastery 05: The Aggregator Pattern](./docs/Mastery-05-Aggregator-Pattern.md)** | • Проблема балакучих клієнтів (Chatty Clients) у мобільних мережах<br>• Математичне доведення латентності Scatter-Gather: $T_{\text{par}} = \max(T_1, T_2)$ проти $T_{\text{seq}} = T_1 + T_2$<br>• Реалізація Scatter-Gather через `Task.WhenAll` та `AsyncUnaryCall.ResponseAsync`<br>• Каскадне прокидання Deadlines крізь мікросервісний граф<br>• Стратегія часткових збоїв (Hard vs Soft Dependencies) та Fallback Pricing<br>• Перехоплювачі (Interceptors): серверний аудит часу та клієнтський `x-correlation-id` | [`OrderAggregatorService.cs`](./src/GatewayService/Services/OrderAggregatorService.cs)<br>[`ServerLoggingInterceptor.cs`](./src/GatewayService/Interceptors/ServerLoggingInterceptor.cs)<br>[`ClientTracingInterceptor.cs`](./src/GatewayService/Interceptors/ClientTracingInterceptor.cs) |
+Ви можете обрати будь-який зі зручних для вас способів:
 
----
+### Спосіб 1: Автоматичний запуск усім комплексом (Найпростіший варіант ⭐️)
 
-## 🔌 Порти та топологія сервісів
+У кореневій директорії репозиторію вже підготовлено готові скрипти автоматичного старту, які піднімуть усі три бекенди у фоні і відкриють консоль клієнта:
 
-| Сервіс | Адреса | Протоколи | Призначення |
-| :--- | :--- | :--- | :--- |
-| **`GatewayService` (REST)** | `http://localhost:5000` | HTTP/1.1 | Гібридний REST-фасад для вебу та браузерів |
-| **`GatewayService` (gRPC)** | `http://localhost:5005` | HTTP/2 (h2c) | Чистий gRPC OrderAggregator (Composite Service) |
-| **`InventoryService`** | `http://localhost:5001` | HTTP/2 (h2c) | Чистий gRPC: облік та аудит залишків складу |
-| **`PricingService`** | `http://localhost:5002` | HTTP/2 (h2c) | Чистий gRPC: ціноутворення, bulk знижки, торги |
-| **`ClientApp`** | CLI Console | HTTP/1.1 + HTTP/2 | Інтерактивний полігон студента (сценарії 01–05) |
+* **Для Windows (PowerShell):**
+  ```powershell
+  # Запустіть один скрипт у терміналі:
+  .\run-all.ps1
+  ```
+* **Для Linux / macOS (Bash):**
+  ```bash
+  chmod +x run-all.sh
+  ./run-all.sh
+  ```
+*Скрипт автоматично запустить `InventoryService`, `PricingService`, `GatewayService`, зачекає 3 секунди на створення SQLite баз даних і відкриє консольне меню `ClientApp`. При виході з консолі всі фонові процеси автоматично завершаться.*
 
 ---
 
-## ⚡ Швидкий старт (Quick Start)
+### Спосіб 2: Запуск вручну в окремих терміналах (Рекомендовано для навчання 🎓)
 
-### 1. Клонування та збірка рішення
-```bash
-git clone https://github.com/MrTomkaYurii/gRPC-Complete-Mastery.git
-cd gRPC-Complete-Mastery
-dotnet build
-```
+Цей спосіб дозволяє наочно спостерігати за кольоровими логами кожного мікросервісу в реальному часі.
 
-### 2. Запуск сервісів (у трьох окремих терміналах або фоном)
+Відкрийте **4 окремих вікна терміналу** в папці репозиторію:
 
-**Термінал 1: Сервіс складу**
+#### 1️⃣ Термінал 1: Сервіс складу (InventoryService)
 ```bash
 dotnet run --project src/InventoryService
 ```
+*Ви побачите: `Now listening on: http://localhost:5001`. Сервіс автоматично створить файл `inventory.db` та наповнить його товарами.*
 
-**Термінал 2: Сервіс цін**
+#### 2️⃣ Термінал 2: Сервіс цін (PricingService)
 ```bash
 dotnet run --project src/PricingService
 ```
+*Ви побачите: `Now listening on: http://localhost:5002`. Сервіс створить базу `pricing.db`.*
 
-**Термінал 3: Гібридний Шлюз & Агрегатор**
+#### 3️⃣ Термінал 3: Шлюз та Агрегатор (GatewayService)
 ```bash
 dotnet run --project src/GatewayService
 ```
+*Ви побачите: `Now listening on: http://localhost:5000` (REST) та `http://localhost:5005` (gRPC).*
 
-*Примітка: SQLite бази даних (`inventory.db` та `pricing.db`) створюються та наповнюються тестовими даними автоматично при першому старті.*
-
----
-
-### 3. Запуск клієнтського інтерактивного стенду
-
-**Термінал 4: Запуск консольного стенду студента**
+#### 4️⃣ Термінал 4: Консольний клієнт студента (ClientApp)
 ```bash
 dotnet run --project src/ClientApp
 ```
+*У терміналі з'явиться інтерактивне консольне меню:*
 
-Ви побачите інтерактивне меню:
 ```text
 ======================================================================
  🚀 gRPC Complete Mastery (.NET 10) - Interactive Student Test Bench  
 ======================================================================
+ 📍 Вузли: REST Gateway: http://localhost:5000 | gRPC Gateway: http://localhost:5005
+         Inventory: http://localhost:5001 | Pricing: http://localhost:5002
+----------------------------------------------------------------------
  [1] Сценарій 01: Unary RPC & Обробка статус-кодів RpcException
  [2] Сценарій 02: Потокові режими: Server, Client та Bi-directional
  [3] Сценарій 03: Гібридний підхід: REST-over-gRPC через HttpClient
@@ -140,25 +153,53 @@ dotnet run --project src/ClientApp
  [A] Запустити ВСІ сценарії послідовно
  [0] Вихід із програми
 ======================================================================
+Оберіть пункт меню (0-5, A): 
 ```
 
-Або запустити всі тести в неінтерактивному автоматичному режимі:
+Введіть цифру від `1` до `5` для покрокового тестування або `A`, щоб виконати всі сценарії автоматично один за одним!
+
+---
+
+### Спосіб 3: Запуск через Visual Studio / JetBrains Rider (Multiple Startup Projects)
+
+Якщо ви віддаєте перевагу роботі в графічній IDE (Visual Studio 2026 або JetBrains Rider):
+
+1. Відкрийте файл рішення **`gRPC-Complete-Mastery.sln`** або **`gRPC-Complete-Mastery.slnx`**.
+2. Клацніть правою кнопкою миші на назві розв'язку (Solution) у Solution Explorer -> оберіть **Configure Startup Projects...** (або *Set Startup Projects*).
+3. Виберіть пункт **Multiple startup projects** і налаштуйте дію **Start** для чотирьох проєктів:
+   - `InventoryService` $\rightarrow$ **Start**
+   - `PricingService` $\rightarrow$ **Start**
+   - `GatewayService` $\rightarrow$ **Start**
+   - `ClientApp` $\rightarrow$ **Start**
+4. Натисніть **F5** (або кнопку *Start / Run*).  
+   IDE відкриє консолі для кожного мікросервісу та виведе інтерактивне вікно `ClientApp`.
+
+---
+
+### Спосіб 4: Автоматичний прогін без інтерактивного меню (CI/CD режим)
+
+Якщо потрібно перевірити працездатність усіх тестів однією командою в автоматичному режимі:
 ```bash
 dotnet run --project src/ClientApp -- --all
 ```
 
 ---
 
-## 🧪 Тестування REST-ендпоінта через cURL або браузер
+## 🧪 Тестування REST-фасаду через браузер або cURL
 
-Оскільки `GatewayService` реалізує концепцію **Dual-Stack**, ви можете протестувати REST фасад будь-яким HTTP-клієнтом:
+Оскільки `GatewayService` реалізує концепцію **Dual-Stack**, ви можете паралельно протестувати REST-ендпоінт прямо у браузері або через термінал:
 
-```bash
-# Отримання агрегованої інформації про товар у форматі JSON
-curl -X GET "http://localhost:5000/api/catalog/products/LAPTOP-PRO-16?tier=VIP&qty=2"
-```
+* **У браузері:** відкрийте посилання [http://localhost:5000/api/catalog/products/LAPTOP-PRO-16?tier=VIP&qty=2](http://localhost:5000/api/catalog/products/LAPTOP-PRO-16?tier=VIP&qty=2)
+* **Через PowerShell:**
+  ```powershell
+  Invoke-RestMethod -Uri "http://localhost:5000/api/catalog/products/LAPTOP-PRO-16?tier=VIP&qty=2" | ConvertTo-Json
+  ```
+* **Через cURL:**
+  ```bash
+  curl -i "http://localhost:5000/api/catalog/products/LAPTOP-PRO-16?tier=VIP&qty=2"
+  ```
 
-Приклад JSON-відповіді:
+Приклад отриманого JSON-документа:
 ```json
 {
   "source": "Hybrid REST-over-gRPC Gateway",
@@ -180,9 +221,25 @@ curl -X GET "http://localhost:5000/api/catalog/products/LAPTOP-PRO-16?tier=VIP&q
 
 ---
 
+## 📚 Навчальні модулі серії «Mastery»
+
+Усі методичні матеріали розроблені у вигляді покрокових академічних підручників у папці [`docs/`](./docs/):
+
+| Посібник | Академічна теорія та інженерні практики | Відповідні файли в коді |
+| :--- | :--- | :--- |
+| **[Mastery 01: Protobuf & Contracts](./docs/Mastery-01-Protobuf-Contracts.md)** | • Ретроспектива: від RPC/CORBA/SOAP до Protobuf<br>• Двійковий шар: Varints, ZigZag для від'ємних чисел, Tag-Length-Value (TLV)<br>• Побайтний розбір структури пакетів (Hex)<br>• Правила еволюції API, `reserved` та збереження невідомих полів (`UnknownFieldSet`) | [`Shared.Contracts`](./src/Shared.Contracts/)<br>• [`inventory.proto`](./src/Shared.Contracts/Protos/inventory.proto)<br>• [`pricing.proto`](./src/Shared.Contracts/Protos/pricing.proto)<br>• [`aggregator.proto`](./src/Shared.Contracts/Protos/aggregator.proto) |
+| **[Mastery 02: Streaming In-Depth](./docs/Mastery-02-Streaming-In-Depth.md)** | • Мережева анатомія HTTP/2: 9-байтний заголовок фрейму, потоки, мультиплексування<br>• Алгоритм компресії заголовків HPACK (Static/Dynamic tables)<br>• Кредитний контроль потоку (Flow Control) та Backpressure (`WINDOW_UPDATE`)<br>• Усі 4 патерни взаємодії з діаграмами фреймів<br>• Deadlines та каскадне скасування через фрейм `RST_STREAM` | [`InventoryGrpcService.cs`](./src/InventoryService/Services/InventoryGrpcService.cs)<br>[`PricingGrpcService.cs`](./src/PricingService/Services/PricingGrpcService.cs)<br>[`02_StreamingScenario.cs`](./src/ClientApp/Scenarios/02_StreamingScenario.cs) |
+| **[Mastery 03: EF Core Integration](./docs/Mastery-03-EFCore-Integration.md)** | • Потокобезпека та ізоляція `IServiceScope` при мультиплексуванні HTTP/2<br>• Чому `DbContext` зобов'язаний бути Scoped<br>• Оптимізація пам'яті через `.AsNoTracking()` та нульові алокації (Zero Allocations)<br>• Каскад скасування від клієнта до драйвера SQLite/Postgres через `CancellationToken`<br>• Транзакційне резервування, стан гонитви (Race Conditions) та матриця мапінгу винятків у `RpcException` | [`InventoryDbContext.cs`](./src/InventoryService/Data/InventoryDbContext.cs)<br>[`PricingDbContext.cs`](./src/PricingService/Data/PricingDbContext.cs)<br>[`InventoryGrpcService.cs`](./src/InventoryService/Services/InventoryGrpcService.cs) |
+| **[Mastery 04: REST Meets gRPC](./docs/Mastery-04-REST-vs-gRPC-Hybrid.md)** | • Фізичне порівняння стеків HTTP/1.1 проти HTTP/2 (діаграми фреймів та алокацій пам'яті)<br>• Архітектура North-South проти East-West<br>• Мережева анатомія помилки `HTTP_1_1_REQUIRED (0xd)` у Cleartext без ALPN<br>• Налаштування Dual-Stack Kestrel (порт 5000 REST + порт 5005 gRPC)<br>• Пулінг каналів через `GrpcClientFactory` (захист від Socket Exhaustion)<br>• Повний порядковий аналіз `CatalogEndpoints.cs` та трансляція `RpcException` у ProblemDetails | [`GatewayService/Program.cs`](./src/GatewayService/Program.cs)<br>[`CatalogEndpoints.cs`](./src/GatewayService/Endpoints/CatalogEndpoints.cs)<br>[`03_RestGatewayScenario.cs`](./src/ClientApp/Scenarios/03_RestGatewayScenario.cs) |
+| **[Mastery 05: The Aggregator Pattern](./docs/Mastery-05-Aggregator-Pattern.md)** | • Проблема балакучих клієнтів (Chatty Clients) та патерн API Composition<br>• Водоспад затримок (Latency Waterfall Gantt): доведення швидкості $T_{\text{par}} = \max(T_1, T_2)$<br>• Неблокуючий I/O в .NET 10: `Task.WhenAll` та `AsyncUnaryCall.ResponseAsync`<br>• Каскадне прокидання Deadlines через заголовок `grpc-timeout` та фрейми `RST_STREAM`<br>• Hard vs Soft Dependencies та Graceful Degradation (Fallback Pricing)<br>• Наскрізний конвеєр перехоплювачів (Interceptors) та порядковий розбір `OrderAggregatorService.cs` | [`OrderAggregatorService.cs`](./src/GatewayService/Services/OrderAggregatorService.cs)<br>[`ServerLoggingInterceptor.cs`](./src/GatewayService/Interceptors/ServerLoggingInterceptor.cs)<br>[`ClientTracingInterceptor.cs`](./src/GatewayService/Interceptors/ClientTracingInterceptor.cs) |
+
+---
+
 ## 🛠️ Використаний технологічний стек
 * **Платформа:** .NET 10.0 (C# 14, Roslyn compiler)
 * **RPC фреймворк:** `Grpc.AspNetCore 2.84`, `Grpc.Net.Client 2.84`, `Grpc.Tools 2.84`
 * **Серіалізація:** `Google.Protobuf 3.36`
 * **ORM & Бази даних:** `Microsoft.EntityFrameworkCore.Sqlite 10.0`
 * **Мережевий транспорт:** HTTP/2 Cleartext (`h2c`) з підтримкою multiplexing & streaming
+* **Веб-сервер:** Kestrel Dual-Stack (HTTP/1.1 на :5000 + HTTP/2 на :5005)
+
