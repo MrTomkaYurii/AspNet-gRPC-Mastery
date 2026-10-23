@@ -1,4 +1,15 @@
 <Solution>
+  <Folder Name="/docs/">
+    <File Path="docs/Mastery-01-Protobuf-Contracts.md" />
+    <File Path="docs/Mastery-02-Streaming-In-Depth.md" />
+    <File Path="docs/Mastery-03-EFCore-Integration.md" />
+    <File Path="docs/Mastery-04-REST-vs-gRPC-Hybrid.md" />
+    <File Path="docs/Mastery-05-Aggregator-Pattern.md" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+    <File Path=".gitignore" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/ClientApp/ClientApp.csproj" />
     <Project Path="src/GatewayService/GatewayService.csproj" />
