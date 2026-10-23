@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 // 1. Kestrel налаштовано на прослуховування порту 5001 з протоколом HTTP/2 (h2c — HTTP/2 cleartext).
 // 2. База даних: Entity Framework Core 10 з провайдером SQLite ('inventory.db').
 // 3. gRPC-ендпоінти монтуються через 'app.MapGrpcService<InventoryGrpcService>()'.
+// 4. gRPC Server Reflection: сервіс самоопису API для Postman, BloomRPC та grpcurl.
 // =================================================================================================
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,6 +32,9 @@ builder.Services.AddGrpc(options =>
     options.EnableDetailedErrors = true;
 });
 
+// Додавання стандартного протоколу gRPC Server Reflection (grpc.reflection.v1alpha / v1)
+builder.Services.AddGrpcReflection();
+
 var app = builder.Build();
 
 // КРОК 3: Ініціалізація та наповнення БД початковими демонстраційними даними (Seeding)
@@ -46,9 +50,13 @@ using (var scope = app.Services.CreateScope())
 // /{Package}.{Service}/{Method} (наприклад: /mastery.inventory.v1.InventoryService/GetStockItem)
 app.MapGrpcService<InventoryGrpcService>();
 
+// Реєстрація ендпоінта gRPC Reflection для динамічного виявлення сервісів зовнішніми інструментами
+app.MapGrpcReflectionService();
+
 // КРОК 5: Fallback-ендпоінт для зручності: інформує користувача у разі відкриття через звичайний браузер
 app.MapGet("/", () => Results.Text(
     "⚡ [InventoryService] gRPC Сервіс Складу працює за протоколом HTTP/2 на порту 5001.\n" +
+    " - gRPC Reflection: Активно (підтримується Postman, grpcurl, BloomRPC)\n" +
     "Підключення має відбуватися через gRPC клієнт або ClientApp.",
     "text/plain; charset=utf-8"));
 

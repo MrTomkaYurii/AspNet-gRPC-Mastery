@@ -235,11 +235,75 @@ dotnet run --project src/ClientApp -- --all
 
 ---
 
+## 🧪 Автоматизоване тестування (xUnit Test Suite)
+
+У репозиторії створено проєкт автоматизованих тестів **`tests/Mastery.Tests`** на базі **xUnit** та **In-Memory SQLite**, що дозволяє миттєво перевірити коректність бізнес-логіки та контрактів:
+
+```bash
+# Запуск усіх модульних та інтеграційних тестів
+dotnet test
+```
+
+### Що перевіряють 10 автоматизованих тестів:
+1. **Ціноутворення (`PricingServiceTests`):**
+   - Розрахунок персональної знижки для грейдів VIP, Gold, Silver.
+   - Застосування додаткового дисконту за гуртові партії ($\ge 10$ шт).
+   - Валідація порожнього SKU $\rightarrow$ перевірка генерації `StatusCode.InvalidArgument`.
+   - Запит неіснуючого товару $\rightarrow$ перевірка генерації `StatusCode.NotFound`.
+2. **Складський облік (`InventoryServiceTests`):**
+   - Успішне зчитування сутності товару та проєкція у Protobuf DTO.
+   - Транзакційне резервування залишку (перевірка зменшення `AvailableQuantity` та збільшення `ReservedQuantity`).
+   - Спроба резервування більшої кількості, ніж є на складі $\rightarrow$ перевірка `StatusCode.FailedPrecondition`.
+3. **Перехоплювачі (`InterceptorTests`):**
+   - Автоматична генерація та впровадження `x-correlation-id` та `x-client-timestamp` у вихідні заголовки.
+   - Збереження вже існуючого ідентифікатора трасування без перезапису.
+
+---
+
+## 📡 gRPC Server Reflection та інструменти налагодження
+
+Усі три сервіси (`InventoryService`, `PricingService`, `GatewayService`) мають увімкнений стандартний протокол **gRPC Server Reflection** (`Grpc.AspNetCore.Server.Reflection`).
+
+Це означає, що вам **не потрібно вручну завантажувати `.proto`-файли** у тестувальні утиліти:
+* **Postman:** Вкажіть адресу `http://localhost:5001` (або `:5002`, `:5005`) і виберіть тип запиту *gRPC* $\rightarrow$ Postman автоматично завантажить схему методів та підкаже структуру полів!
+* **grpcurl:**
+  ```bash
+  # Список усіх сервісів на порту складу:
+  grpcurl -plaintext localhost:5001 list
+  
+  # Опис методів сервісу:
+  grpcurl -plaintext localhost:5001 describe mastery.inventory.v1.InventoryService
+  ```
+
+---
+
+## 📄 Інтерактивні HTTP-запити (`requests.http`) та OpenAPI
+
+* **Файл [`requests.http`](./requests.http):** Містить готові запити для тестування REST-фасаду та перевірки здоров'я мікросервісів. Підтримується нативно у Visual Studio 2026 та VS Code (розширення *REST Client*).
+* **OpenAPI Специфікація:** Для `GatewayService` доступний стандартний ендпоінт опису API у форматі JSON:
+  [http://localhost:5000/openapi/v1.json](http://localhost:5000/openapi/v1.json)
+
+---
+
+## 🐳 Контейнеризація (Docker & Docker Compose)
+
+У репозиторії налаштовано багатоетапний [`Dockerfile`](./Dockerfile) та [`docker-compose.yml`](./docker-compose.yml), що дозволяє запустити весь розподілений комплекс однією командою:
+
+```bash
+# Збірка образів та запуск усього стеку
+docker compose up --build
+```
+
+---
+
 ## 🛠️ Використаний технологічний стек
 * **Платформа:** .NET 10.0 (C# 14, Roslyn compiler)
 * **RPC фреймворк:** `Grpc.AspNetCore 2.84`, `Grpc.Net.Client 2.84`, `Grpc.Tools 2.84`
+* **Сервісна рефлексія:** `Grpc.AspNetCore.Server.Reflection 2.84`
 * **Серіалізація:** `Google.Protobuf 3.36`
 * **ORM & Бази даних:** `Microsoft.EntityFrameworkCore.Sqlite 10.0`
 * **Мережевий транспорт:** HTTP/2 Cleartext (`h2c`) з підтримкою multiplexing & streaming
 * **Веб-сервер:** Kestrel Dual-Stack (HTTP/1.1 на :5000 + HTTP/2 на :5005)
+* **Тестування:** `xUnit 2.9`, `Microsoft.NET.Test.Sdk 17.14`, In-Memory SQLite
+* **Контейнери:** Docker Multi-stage & Docker Compose v2
 

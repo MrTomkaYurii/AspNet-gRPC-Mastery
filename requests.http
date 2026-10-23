@@ -1,0 +1,40 @@
+### ==============================================================================
+### gRPC-Complete-Mastery (.NET 10) - HTTP & REST Test Requests
+### Можна запускати безпосередньо у Visual Studio 2026 або VS Code (REST Client)
+### ==============================================================================
+
+@gatewayRestUrl = http://localhost:5000
+@inventoryUrl = http://localhost:5001
+@pricingUrl = http://localhost:5002
+
+### 1. Перевірка статусу шлюзу GatewayService (HTTP/1.1)
+GET {{gatewayRestUrl}}/
+Accept: text/plain
+
+### 2. Запит OpenAPI специфікації шлюзу (JSON)
+GET {{gatewayRestUrl}}/openapi/v1.json
+Accept: application/json
+
+### 3. Отримання товару через REST-фасад (LAPTOP-PRO-16, грейд VIP, 2 шт)
+GET {{gatewayRestUrl}}/api/catalog/products/LAPTOP-PRO-16?tier=VIP&qty=2
+Accept: application/json
+
+### 4. Отримання товару зі стандартним грейдом (PHONE-ULTRA-24, 1 шт)
+GET {{gatewayRestUrl}}/api/catalog/products/PHONE-ULTRA-24?tier=Standard&qty=1
+Accept: application/json
+
+### 5. Отримання гуртової партії зі знижкою за обсяг (HEADPHONES-ANC, 15 шт)
+GET {{gatewayRestUrl}}/api/catalog/products/HEADPHONES-ANC?tier=GOLD&qty=15
+Accept: application/json
+
+### 6. Перевірка обробки 404 Not Found (неіснуючий артикул)
+GET {{gatewayRestUrl}}/api/catalog/products/NON-EXISTENT-SKU
+Accept: application/json
+
+### 7. Перевірка статусу InventoryService
+GET {{inventoryUrl}}/
+Accept: text/plain
+
+### 8. Перевірка статусу PricingService
+GET {{pricingUrl}}/
+Accept: text/plain

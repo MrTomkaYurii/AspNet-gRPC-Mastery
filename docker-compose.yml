@@ -1,0 +1,37 @@
+services:
+  inventory:
+    build:
+      context: .
+      target: inventory-service
+    ports:
+      - "5001:5001"
+    restart: unless-stopped
+
+  pricing:
+    build:
+      context: .
+      target: pricing-service
+    ports:
+      - "5002:5002"
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      target: gateway-service
+    ports:
+      - "5000:5000"
+      - "5005:5005"
+    depends_on:
+      - inventory
+      - pricing
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      target: client-app
+    depends_on:
+      - gateway
+      - inventory
+      - pricing
