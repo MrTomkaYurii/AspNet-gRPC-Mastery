@@ -1,11 +1,13 @@
 using System.Text;
 using ClientApp.Scenarios;
 
+AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 Console.OutputEncoding = Encoding.UTF8;
 
 string inventoryUrl = Environment.GetEnvironmentVariable("INVENTORY_URL") ?? "http://localhost:5001";
 string pricingUrl = Environment.GetEnvironmentVariable("PRICING_URL") ?? "http://localhost:5002";
-string gatewayUrl = Environment.GetEnvironmentVariable("GATEWAY_URL") ?? "http://localhost:5000";
+string gatewayRestUrl = Environment.GetEnvironmentVariable("GATEWAY_REST_URL") ?? "http://localhost:5000";
+string gatewayGrpcUrl = Environment.GetEnvironmentVariable("GATEWAY_GRPC_URL") ?? "http://localhost:5005";
 
 if (args.Length > 0 && args[0].Equals("--all", StringComparison.OrdinalIgnoreCase))
 {
@@ -21,7 +23,8 @@ while (true)
     Console.WriteLine(" 🚀 gRPC Complete Mastery (.NET 10) - Interactive Student Test Bench  ");
     Console.WriteLine("======================================================================");
     Console.ResetColor();
-    Console.WriteLine($" 📍 Вузли: Gateway: {gatewayUrl} | Inventory: {inventoryUrl} | Pricing: {pricingUrl}");
+    Console.WriteLine($" 📍 Вузли: REST Gateway: {gatewayRestUrl} | gRPC Gateway: {gatewayGrpcUrl}");
+    Console.WriteLine($"         Inventory: {inventoryUrl} | Pricing: {pricingUrl}");
     Console.WriteLine("----------------------------------------------------------------------");
     Console.WriteLine(" [1] Сценарій 01: Unary RPC & Обробка статус-кодів RpcException");
     Console.WriteLine(" [2] Сценарій 02: Потокові режими: Server, Client та Bi-directional");
@@ -52,13 +55,13 @@ while (true)
                 await StreamingScenario.RunAsync(inventoryUrl, pricingUrl);
                 break;
             case "3":
-                await RestGatewayScenario.RunAsync(gatewayUrl);
+                await RestGatewayScenario.RunAsync(gatewayRestUrl);
                 break;
             case "4":
-                await AggregatorScenario.RunAsync(gatewayUrl);
+                await AggregatorScenario.RunAsync(gatewayGrpcUrl);
                 break;
             case "5":
-                await ResilienceScenario.RunAsync(gatewayUrl);
+                await ResilienceScenario.RunAsync(gatewayGrpcUrl);
                 break;
             case "A":
                 await RunAllScenariosAsync();
@@ -86,17 +89,17 @@ async Task RunAllScenariosAsync()
 {
     Console.WriteLine("\n>>> ЗАПУСК УСІХ 5-ти СЦЕНАРІЇВ ПІДРЯД <<<\n");
     await UnaryCallScenario.RunAsync(inventoryUrl);
-    await Task.Delay(1000);
+    await Task.Delay(500);
 
     await StreamingScenario.RunAsync(inventoryUrl, pricingUrl);
-    await Task.Delay(1000);
+    await Task.Delay(500);
 
-    await RestGatewayScenario.RunAsync(gatewayUrl);
-    await Task.Delay(1000);
+    await RestGatewayScenario.RunAsync(gatewayRestUrl);
+    await Task.Delay(500);
 
-    await AggregatorScenario.RunAsync(gatewayUrl);
-    await Task.Delay(1000);
+    await AggregatorScenario.RunAsync(gatewayGrpcUrl);
+    await Task.Delay(500);
 
-    await ResilienceScenario.RunAsync(gatewayUrl);
+    await ResilienceScenario.RunAsync(gatewayGrpcUrl);
     Console.WriteLine("\n🎉 Усі навчальні сценарії успішно виконано!");
 }

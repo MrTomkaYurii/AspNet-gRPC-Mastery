@@ -2,6 +2,8 @@ using GatewayService.Endpoints;
 using GatewayService.Interceptors;
 using GatewayService.Services;
 
+AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Реєстрація інтерцепторів
@@ -38,9 +40,9 @@ app.MapGrpcService<OrderAggregatorService>();
 
 // Привітальний екран при відкритті через браузер
 app.MapGet("/", () => Results.Text(
-    "🚪 [GatewayService] Гібридний Шлюз & gRPC Агрегатор запущено на порту 5000.\n" +
-    " - REST Ендпоінт:  GET  http://localhost:5000/api/catalog/products/{sku}\n" +
-    " - gRPC Ендпоінт:  POST http://localhost:5000/mastery.aggregator.v1.OrderAggregator/GetOrderOverview\n",
+    "🚪 [GatewayService] Гібридний Шлюз & gRPC Агрегатор запущено.\n" +
+    " - REST Ендпоінт (HTTP/1.1): GET  http://localhost:5000/api/catalog/products/{sku}\n" +
+    " - gRPC Ендпоінт (HTTP/2):   POST http://localhost:5005/mastery.aggregator.v1.OrderAggregator/GetOrderOverview\n",
     "text/plain; charset=utf-8"));
 
 app.Run();

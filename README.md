@@ -82,7 +82,8 @@ SQLite WAL")]
 
 | Сервіс | Адреса | Протоколи | Призначення |
 | :--- | :--- | :--- | :--- |
-| **`GatewayService`** | `http://localhost:5000` | HTTP/1.1 + HTTP/2 | Гібридний шлюз: REST API + gRPC OrderAggregator |
+| **`GatewayService` (REST)** | `http://localhost:5000` | HTTP/1.1 | Гібридний REST-фасад для вебу та браузерів |
+| **`GatewayService` (gRPC)** | `http://localhost:5005` | HTTP/2 (h2c) | Чистий gRPC OrderAggregator (Composite Service) |
 | **`InventoryService`** | `http://localhost:5001` | HTTP/2 (h2c) | Чистий gRPC: облік та аудит залишків складу |
 | **`PricingService`** | `http://localhost:5002` | HTTP/2 (h2c) | Чистий gRPC: ціноутворення, bulk знижки, торги |
 | **`ClientApp`** | CLI Console | HTTP/1.1 + HTTP/2 | Інтерактивний полігон студента (сценарії 01–05) |
