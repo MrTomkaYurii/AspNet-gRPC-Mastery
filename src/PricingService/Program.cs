@@ -2,15 +2,25 @@ using Microsoft.EntityFrameworkCore;
 using PricingService.Data;
 using PricingService.Services;
 
+// =================================================================================================
+// Точка входу мікросервісу ціноутворення та котирувань (PricingService)
+// 
+// НАВЧАЛЬНА ДОВІДКА ДЛЯ СТУДЕНТА:
+// Цей мікросервіс працює на порту 5002 виключно за протоколом HTTP/2.
+// Він обслуговує запити розрахунку індивідуальних дисконтів, потік масового завантаження правил
+// (Client Streaming) та повнодуплексні інтерактивні торги (Bi-directional Streaming).
+// База даних SQLite 'pricing.db' керується через EF Core 10.
+// =================================================================================================
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Додавання EF Core з файловою SQLite базою
+// КРОК 1: Додавання контексту бази даних SQLite
 builder.Services.AddDbContext<PricingDbContext>(options =>
 {
     options.UseSqlite("Data Source=pricing.db");
 });
 
-// Реєстрація gRPC інфраструктури
+// КРОК 2: Реєстрація gRPC інфраструктури
 builder.Services.AddGrpc(options =>
 {
     options.EnableDetailedErrors = true;
@@ -18,17 +28,17 @@ builder.Services.AddGrpc(options =>
 
 var app = builder.Build();
 
-// Автоматичне застосування схеми та наповнення тестовими цінами
+// КРОК 3: Автоматичне застосування схеми таблиць та наповнення прайс-листа стартовими даними
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<PricingDbContext>();
     await PricingDbSeeder.SeedAsync(dbContext);
 }
 
-// Мапінг gRPC сервісу
+// КРОК 4: Реєстрація gRPC-сервісу ціноутворення у маршрутизаторі Kestrel
 app.MapGrpcService<PricingGrpcService>();
 
-// Fallback підказка для веб-браузера
+// КРОК 5: Fallback-інформація для звичайних HTTP/1.1 клієнтів (браузер)
 app.MapGet("/", () => Results.Text(
     "⚡ [PricingService] gRPC Сервіс Ціноутворення працює за протоколом HTTP/2 на порту 5002.\n" +
     "Підключення має відбуватися через gRPC клієнт або GatewayService.",

@@ -3,9 +3,24 @@ using Mastery.Aggregator.V1;
 
 namespace ClientApp.Scenarios;
 
+/// <summary>
+/// Навчальний сценарій 04: Патерн Aggregator (Scatter-Gather) та отримання композитного DTO.
+/// 
+/// НАВЧАЛЬНА ДОВІДКА ДЛЯ СТУДЕНТА:
+/// 1. Патерн Aggregator дозволяє уникнути надмірної балакучості (Chatty I/O) між клієнтом та мікросервісами.
+///    Замість того, щоб клієнт робив два окремі мережеві виклики (до InventoryService, а потім до PricingService),
+///    він звертається до єдиного композитного ендпоінту агрегатора 'OrderAggregator.GetOrderOverview'.
+/// 2. Сервіс-агрегатор у шлюзі GatewayService паралельно опитує бекенди, збирає дані докупи,
+///    розраховує підсумкові суми замовлення та час агрегації, повертаючи клієнту вже сформовану зведену відповідь.
+/// 3. Даний сценарій підключається безпосередньо до gRPC порту шлюзу (порт 5005) через чистий HTTP/2.
+/// </summary>
 public static class AggregatorScenario
 {
-    public static async Task RunAsync(string gatewayUrl)
+    /// <summary>
+    /// Виконує виклик композитного методу GetOrderOverview на gRPC-шлюзі.
+    /// </summary>
+    /// <param name="gatewayGrpcUrl">Адреса gRPC-інтерфейсу GatewayService (http://localhost:5005).</param>
+    public static async Task RunAsync(string gatewayGrpcUrl)
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("\n=======================================================");
@@ -13,14 +28,16 @@ public static class AggregatorScenario
         Console.WriteLine("=======================================================");
         Console.ResetColor();
 
-        using var channel = GrpcChannel.ForAddress(gatewayUrl);
+        // Ініціалізація gRPC-каналу до шлюзу
+        using var channel = GrpcChannel.ForAddress(gatewayGrpcUrl);
         var client = new OrderAggregator.OrderAggregatorClient(channel);
 
         Console.WriteLine("\n[1] Відправка запиту до gRPC Агрегатора (OrderAggregator.GetOrderOverview)...");
-        Console.WriteLine("    SKU: 'LAPTOP-PRO-16' | Грейд: 'Gold' | Кількість: 3 шт.");
+        Console.WriteLine("    Параметри: SKU: 'LAPTOP-PRO-16' | Грейд: 'Gold' | Кількість: 3 шт.");
 
         try
         {
+            // Виклик Unary RPC до агрегатора
             var response = await client.GetOrderOverviewAsync(new OrderOverviewRequest
             {
                 Sku = "LAPTOP-PRO-16",

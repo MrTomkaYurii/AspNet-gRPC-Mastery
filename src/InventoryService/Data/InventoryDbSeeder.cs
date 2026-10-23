@@ -2,17 +2,36 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InventoryService.Data;
 
+/// <summary>
+/// Допоміжний клас для ініціалізації та початкового наповнення бази даних складу.
+/// 
+/// НАВЧАЛЬНА ДОВІДКА ДЛЯ СТУДЕНТА:
+/// Метод 'SeedAsync' виконується один раз під час запуску програми в 'Program.cs':
+/// 1. Створює таблиці бази даних SQLite за допомогою 'EnsureCreatedAsync()' (якщо файл ще не створено).
+/// 2. Перевіряє наявність даних ('AnyAsync()') для уникнення дублювання при повторних запусках.
+/// 3. Наповнює базу репрезентативним каталогом товарів із різними статусами наявності:
+///    - 'InStock' (наявний у достатній кількості);
+///    - 'LowStock' (залишилось мало);
+///    - 'OutOfStock' (повністю вичерпано).
+/// </summary>
 public static class InventoryDbSeeder
 {
+    /// <summary>
+    /// Асинхронно ініціалізує та заповнює демонстраційними записами базу даних SQLite.
+    /// </summary>
+    /// <param name="db">Екземпляр InventoryDbContext з тимчасового скоупу додатка.</param>
     public static async Task SeedAsync(InventoryDbContext db)
     {
+        // Створення схеми таблиць, якщо файлу inventory.db ще не існує
         await db.Database.EnsureCreatedAsync();
 
+        // Захист від повторної вставки при перезапуску Kestrel
         if (await db.StockItems.AnyAsync())
         {
             return;
         }
 
+        // Початковий каталог складських запасів електроніки
         var items = new List<StockItemEntity>
         {
             new()

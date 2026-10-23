@@ -1,20 +1,39 @@
 using System.Text;
 using ClientApp.Scenarios;
 
+// =================================================================================================
+// Точка входу інтерактивного тестового стенду студента (ClientApp)
+// 
+// НАВЧАЛЬНА ДОВІДКА ДЛЯ СТУДЕНТА:
+// Цей консольний застосунок надає зручний інтерактивний інтерфейс для вивчення та тестування:
+// 1. Unary RPC та кодів завершення RpcException (Сценарій 01)
+// 2. Усіх трьох моделей потокової передачі (Server, Client, Bi-di Streaming) (Сценарій 02)
+// 3. Гібридного REST-over-gRPC шлюзу через HttpClient (Сценарій 03)
+// 4. Патерну Aggregator (Scatter-Gather / Composite DTO) (Сценарій 04)
+// 5. Дедлайнів (Deadlines), переривання з'єднання та метаданих (Сценарій 05)
+// 
+// Дозволяє запускати сценарії по одному через меню або автоматично всі підряд за допомогою ключа:
+// dotnet run --project src/ClientApp -- --all
+// =================================================================================================
+
+// Вмикаємо підтримку незашифрованого протоколу HTTP/2 (h2c) у сокетах SocketsHttpHandler
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 Console.OutputEncoding = Encoding.UTF8;
 
+// Отримання базових URL-адрес сервісів з конфігурації або змінних середовища
 string inventoryUrl = Environment.GetEnvironmentVariable("INVENTORY_URL") ?? "http://localhost:5001";
 string pricingUrl = Environment.GetEnvironmentVariable("PRICING_URL") ?? "http://localhost:5002";
 string gatewayRestUrl = Environment.GetEnvironmentVariable("GATEWAY_REST_URL") ?? "http://localhost:5000";
 string gatewayGrpcUrl = Environment.GetEnvironmentVariable("GATEWAY_GRPC_URL") ?? "http://localhost:5005";
 
+// Якщо передано прапорець '--all', запускаємо повний автоматизований цикл тестів без очікування вводу
 if (args.Length > 0 && args[0].Equals("--all", StringComparison.OrdinalIgnoreCase))
 {
     await RunAllScenariosAsync();
     return;
 }
 
+// Головний цикл інтерактивного текстового меню для студента
 while (true)
 {
     Console.Clear();
@@ -85,6 +104,9 @@ while (true)
     Console.ReadKey(true);
 }
 
+/// <summary>
+/// Послідовний запуск усіх навчальних сценаріїв один за одним.
+/// </summary>
 async Task RunAllScenariosAsync()
 {
     Console.WriteLine("\n>>> ЗАПУСК УСІХ 5-ти СЦЕНАРІЇВ ПІДРЯД <<<\n");
